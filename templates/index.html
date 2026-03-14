@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI Music Recommendation</title>
+
+<style>
+
+/* BODY */
+
+body{
+font-family:'Segoe UI',sans-serif;
+margin:0;
+color:white;
+text-align:center;
+background:linear-gradient(-45deg,#1db954,#191414,#0f2027,#203a43);
+background-size:400% 400%;
+animation:bg 12s ease infinite;
+overflow-x:hidden;
+}
+
+@keyframes bg{
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+}
+
+/* PARTICLES */
+
+.particles{
+position:fixed;
+width:100%;
+height:100%;
+top:0;
+left:0;
+z-index:-1;
+}
+
+.particles span{
+position:absolute;
+width:6px;
+height:6px;
+background:#1db954;
+border-radius:50%;
+animation:float 10s linear infinite;
+}
+
+@keyframes float{
+0%{transform:translateY(100vh);opacity:0;}
+50%{opacity:1;}
+100%{transform:translateY(-10vh);opacity:0;}
+}
+
+/* CONTAINER */
+
+.container{
+max-width:1100px;
+margin:auto;
+padding:30px;
+}
+
+/* TITLE */
+
+.title{
+font-size:48px;
+background:linear-gradient(90deg,#1db954,#00e5ff,#ff4b2b);
+background-size:300%;
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;
+animation:titleFlow 6s infinite linear;
+}
+
+@keyframes titleFlow{
+0%{background-position:0%}
+100%{background-position:300%}
+}
+
+/* SEARCH */
+
+.search{
+padding:12px;
+width:260px;
+border-radius:20px;
+border:none;
+margin:10px;
+}
+
+/* SELECT */
+
+select{
+padding:12px;
+width:260px;
+border-radius:20px;
+border:none;
+}
+
+/* BUTTON */
+
+button{
+padding:12px 20px;
+border:none;
+border-radius:20px;
+background:#1db954;
+color:white;
+cursor:pointer;
+margin:5px;
+transition:0.3s;
+position:relative;
+overflow:hidden;
+}
+
+button:hover{
+transform:scale(1.1);
+background:#1ed760;
+}
+
+/* RIPPLE */
+
+button span{
+position:absolute;
+background:white;
+border-radius:50%;
+transform:scale(0);
+animation:ripple 0.6s linear;
+}
+
+@keyframes ripple{
+to{
+transform:scale(4);
+opacity:0;
+}
+}
+
+/* SONG GRID */
+
+.songs{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:20px;
+margin-top:30px;
+}
+
+/* SONG CARD */
+
+.song-card{
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(10px);
+padding:20px;
+border-radius:20px;
+box-shadow:0 10px 25px rgba(0,0,0,0.4);
+transition:0.4s;
+transform:translateY(30px);
+opacity:0;
+}
+
+.song-card:hover{
+transform:rotateY(10deg) rotateX(5deg) scale(1.05);
+box-shadow:0 0 20px #1db954;
+}
+
+/* EQUALIZER */
+
+.equalizer{
+display:flex;
+justify-content:center;
+gap:4px;
+margin:10px 0;
+}
+
+.equalizer span{
+width:4px;
+height:12px;
+background:#1db954;
+animation:music 1s infinite;
+}
+
+.equalizer span:nth-child(2){animation-delay:0.2s}
+.equalizer span:nth-child(3){animation-delay:0.4s}
+.equalizer span:nth-child(4){animation-delay:0.6s}
+
+@keyframes music{
+0%{transform:scaleY(0.4)}
+50%{transform:scaleY(1)}
+100%{transform:scaleY(0.4)}
+}
+
+/* PLAYLIST */
+
+.playlist{
+margin-top:40px;
+padding:20px;
+background:rgba(255,255,255,0.08);
+border-radius:20px;
+}
+
+.playlist-item{
+display:flex;
+justify-content:space-between;
+background:#222;
+padding:10px;
+margin:5px;
+border-radius:10px;
+}
+
+iframe{
+border-radius:10px;
+margin-top:10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="particles"></div>
+
+<div class="container">
+
+<h1 class="title">🎵 AI Song Recommendation</h1>
+
+<input class="search" type="text" id="search" placeholder="Search song..." onkeyup="filterSongs()">
+
+<form action="/recommend" method="post">
+
+<select name="song" id="songSelect">
+
+{% for song in songs %}
+<option value="{{song}}">{{song}}</option>
+{% endfor %}
+
+</select>
+
+<button type="submit">Recommend</button>
+
+</form>
+
+{% if recommendations %}
+
+<h2>Recommended Songs</h2>
+
+<div class="songs">
+
+{% for r in recommendations %}
+
+<div class="song-card">
+
+<h3>{{r.song}}</h3>
+<p>{{r.artist}}</p>
+
+<div class="equalizer">
+<span></span><span></span><span></span><span></span>
+</div>
+
+<iframe width="200" height="120"
+src="{{r.youtube.replace('watch?v=','embed/')}}"
+frameborder="0"
+allowfullscreen></iframe>
+
+<br>
+
+<button onclick="addToPlaylist('{{r.song}}','{{r.artist}}')">➕ Playlist</button>
+
+<a href="{{r.youtube}}" target="_blank">
+<button style="background:red">▶ YouTube</button>
+</a>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+{% endif %}
+
+<h2>🎧 My Playlist</h2>
+
+<div id="playlist" class="playlist"></div>
+
+</div>
+
+<script>
+
+/* PARTICLES */
+
+const particles=document.querySelector(".particles");
+
+for(let i=0;i<40;i++){
+
+let p=document.createElement("span");
+
+p.style.left=Math.random()*100+"%";
+p.style.animationDuration=(5+Math.random()*5)+"s";
+
+particles.appendChild(p);
+
+}
+
+/* CARD ANIMATION */
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+document.querySelectorAll(".song-card").forEach((card,i)=>{
+
+setTimeout(()=>{
+card.style.opacity=1;
+card.style.transform="translateY(0)";
+},i*150);
+
+});
+
+});
+
+/* RIPPLE EFFECT */
+
+document.querySelectorAll("button").forEach(btn=>{
+
+btn.addEventListener("click",function(e){
+
+let circle=document.createElement("span");
+
+circle.style.left=e.offsetX+"px";
+circle.style.top=e.offsetY+"px";
+
+this.appendChild(circle);
+
+setTimeout(()=>circle.remove(),600);
+
+});
+
+});
+
+/* PLAYLIST */
+
+let playlist=[];
+
+function addToPlaylist(song,artist){
+
+playlist.push({song,artist});
+
+renderPlaylist();
+
+}
+
+function renderPlaylist(){
+
+let container=document.getElementById("playlist");
+
+container.innerHTML="";
+
+playlist.forEach((item,i)=>{
+
+container.innerHTML+=`
+<div class="playlist-item">
+🎵 ${item.song} - ${item.artist}
+<button onclick="removeSong(${i})">❌</button>
+</div>
+`;
+
+});
+
+}
+
+function removeSong(i){
+
+playlist.splice(i,1);
+
+renderPlaylist();
+
+}
+
+/* SEARCH */
+
+function filterSongs(){
+
+let input=document.getElementById("search").value.toLowerCase();
+
+let select=document.getElementById("songSelect");
+
+for(let i=0;i<select.options.length;i++){
+
+let txt=select.options[i].text.toLowerCase();
+
+select.options[i].style.display=
+txt.includes(input) ? "" : "none";
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
